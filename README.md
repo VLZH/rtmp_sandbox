@@ -1,0 +1,3 @@
+# Sandbox project for play with rtmp, joy4...
+
+Video files in this repo from [S7 Airlines](https://www.youtube.com/user/S7Group)
