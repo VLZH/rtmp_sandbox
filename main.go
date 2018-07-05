@@ -17,15 +17,15 @@ func asyncCopyPackets() {
 	ch := make(chan av.Packet)
 	headCh := make(chan []av.CodecData)
 	files := []*VFile{
-		&VFile{Name: "/Users/vladimirzhdanov/go/src/redlinestudio/stream_sandbox/1.mp4"},
-		&VFile{Name: "/Users/vladimirzhdanov/go/src/redlinestudio/stream_sandbox/2.mp4"},
-		&VFile{Name: "/Users/vladimirzhdanov/go/src/redlinestudio/stream_sandbox/3.mp4"},
+		&VFile{Name: "./1.mp4"},
+		&VFile{Name: "./2.mp4"},
+		&VFile{Name: "./3.mp4"},
 	}
 	// reader
 	reader, closeChan := CreateReader(ch, headCh, files)
 	// writer
-	// rtmp_server := "rtmp://live-hel.twitch.tv/app/live_129862765_H7988wWNq4m2kNaPPwnHkIxRKIsoDB"
-	// rtmp_server := "rtmp://a.rtmp.youtube.com/live2/x090-5e9d-dwra-em1g"
+	// rtmp_server := "rtmp://live-hel.twitch.tv/app/<key>"
+	// rtmp_server := "rtmp://a.rtmp.youtube.com/live2/<key>"
 	rtmp_server := "rtmp://127.0.0.1:1935/live/test"
 	conn, err := rtmp.Dial(rtmp_server)
 	if err != nil {
