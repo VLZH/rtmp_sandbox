@@ -3,36 +3,23 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/nareix/joy4"
+  name = "github.com/imkira/go-libav"
   packages = [
-    "av",
-    "av/avutil",
-    "av/pktque",
-    "av/transcode",
-    "cgo/ffmpeg",
-    "codec",
-    "codec/aacparser",
-    "codec/fake",
-    "codec/h264parser",
-    "format",
-    "format/aac",
-    "format/flv",
-    "format/flv/flvio",
-    "format/mp4",
-    "format/mp4/mp4io",
-    "format/rtmp",
-    "format/rtsp",
-    "format/rtsp/sdp",
-    "format/ts",
-    "format/ts/tsio",
-    "utils/bits",
-    "utils/bits/pio"
+    "avcodec",
+    "avformat",
+    "avutil"
   ]
+  revision = "ab207a9a7592d50464a5dae46713a91b9721000b"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/nareix/joy4"
+  packages = ["av"]
   revision = "f98bf9bd9e1f1c9dd66dde2d7776871242ca2ba8"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "02db95a4e577463ed86635cfd8e5a0bf483fb9cf7852fa1a61558b57642c3047"
+  inputs-digest = "71b9af143232a15821aaa281f8b400376779db07337a738391a9018751003a43"
   solver-name = "gps-cdcl"
   solver-version = 1
