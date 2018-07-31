@@ -6,6 +6,7 @@
   name = "github.com/imkira/go-libav"
   packages = [
     "avcodec",
+    "avfilter",
     "avformat",
     "avutil"
   ]
@@ -20,6 +21,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "71b9af143232a15821aaa281f8b400376779db07337a738391a9018751003a43"
+  inputs-digest = "124a61af86b28c74f7b09a9d260b8fe7ae86aac642cd547f4c444f8d8a2aee34"
   solver-name = "gps-cdcl"
   solver-version = 1

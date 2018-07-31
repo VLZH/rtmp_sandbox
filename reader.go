@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/imkira/go-libav/avcodec"
 )
 
 // CreateReader return new Reader with chanel
-func CreateReader(ch chan avcodec.Packet, files []*VFile) (Reader, chan bool) {
+func CreateReader(ch chan *avcodec.Packet, files []*VFile) (Reader, chan bool) {
 	r := Reader{
 		Ch:      ch,
 		CloseCh: make(chan bool),
@@ -18,7 +19,7 @@ func CreateReader(ch chan avcodec.Packet, files []*VFile) (Reader, chan bool) {
 
 // Reader is
 type Reader struct {
-	Ch      chan avcodec.Packet
+	Ch      chan *avcodec.Packet
 	CloseCh chan bool
 	Files   []*VFile
 	Idx     int
@@ -29,8 +30,16 @@ func (r *Reader) StartLoop() {
 	for {
 		cFile = r.GetNextFile()
 		cFile.prepareContext()
-		cFile.readPacket()
-		fmt.Println("Start loop", cFile)
+		for {
+			pkt, err := cFile.readPacketT()
+			if err != nil {
+				log.Printf("Error on read packet: %v", err.Error())
+				close(r.Ch)
+				break
+			}
+			r.Ch <- pkt
+		}
+		fmt.Println("End of file", cFile)
 	}
 }
 
