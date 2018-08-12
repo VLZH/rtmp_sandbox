@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 
-	"github.com/imkira/go-libav/avcodec"
-	"github.com/imkira/go-libav/avformat"
+	"github.com/3d0c/gmf"
 )
 
-func CreateWriter(ch chan *avcodec.Packet, dst string) (Writer, error) {
+// CreateWriter is
+func CreateWriter(ch chan *gmf.Packet, dst string) (Writer, error) {
 	return Writer{
 		Ch:          ch,
 		Destination: dst,
@@ -16,49 +16,38 @@ func CreateWriter(ch chan *avcodec.Packet, dst string) (Writer, error) {
 
 // Writer is struct of writer to a muxer
 type Writer struct {
-	Ch          chan *avcodec.Packet
+	Ch          chan *gmf.Packet
 	Destination string
 	//
-	encFmt    *avformat.Context
-	encStream *avformat.Stream
-	encIO     *avformat.IOContext
+	OutputContex *gmf.FmtCtx
 }
 
+// Prepare is
 func (wr *Writer) Prepare() {
-	wr.PrepareFormatContext()
-	wr.PrepareStream()
-	wr.PrepareIOContext()
-	// wr.WriteHeader()
-}
-
-func (wr *Writer) PrepareFormatContext() {
 	var err error
-	output := avformat.GuessOutputFromFileName(wr.Destination)
-	// output.
-	if output == nil {
-		log.Fatalf("Failed to guess output for output file: %s\n", wr.Destination)
-	}
-	if wr.encFmt, err = avformat.NewContextForOutput(output); err != nil {
-		log.Fatalf("Failed to open output context: %v\n", err)
-	}
-	wr.encFmt.SetFileName(wr.Destination)
-}
-
-func (wr *Writer) PrepareStream() {
-	var err error
-	wr.encStream, err = wr.encFmt.NewStreamWithCodec(nil)
+	wr.OutputContex, err = gmf.NewOutputCtxWithFormatName(wr.Destination, "flv")
 	if err != nil {
-		log.Fatalf("Failed to open output video stream: %v\n", err)
+		log.Println("ERROR: on createing output context", err.Error())
 	}
-}
-
-func (wr *Writer) PrepareIOContext() {
-	var err error
-	flags := avformat.IOFlagWrite
-	if wr.encIO, err = avformat.OpenIOContext(wr.Destination, flags, nil, nil); err != nil {
-		log.Fatalf("Failed to open I/O context: %v\n", err)
+	// video
+	vc, err := gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
+	if err != nil {
+		log.Println("ERROR: on finding encoder for flv in writer", err.Error())
 	}
-	wr.encFmt.SetIOContext(wr.encIO)
+	log.Printf("INFO: Output video codec: %v \n", vc.Name())
+	vcc := gmf.NewCodecCtx(vc)
+	// audio
+	ac, err := gmf.FindEncoder("libmp3lame")
+	if err != nil {
+		log.Println("ERROR: on finding encoder for mp3 in writer", err.Error())
+	}
+	log.Printf("INFO: Output audio codec: %v \n", ac.Name())
+	acc := gmf.NewCodecCtx(ac)
+	// add Streams
+	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
+	sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
+	log.Printf("INFO: output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sa.Index(), wr.OutputContex.StreamsCnt())
+	wr.writeHeader()
 }
 
 // StartLoop is function for starting listen chan of packets and write they to muxer
@@ -67,29 +56,27 @@ func (wr *Writer) StartLoop() {
 	for {
 		pkt := <-wr.Ch
 		if pkt != nil {
-			pkt.SetPosition(-1)
-			pkt.SetStreamIndex(wr.encStream.Index())
-			err = wr.encFmt.WriteFrame(pkt)
+			log.Printf("INFO: Packet pts: %v, data size: %v stream index: %v \n", pkt.Pts(), len(pkt.Data()), pkt.StreamIndex())
+			err = wr.OutputContex.WritePacket(pkt)
+			gmf.Release(pkt)
 			if err != nil {
-				log.Fatalf("Error on write packet; %v", err)
+				log.Println("ERROR: on writing packet to output context", err.Error())
 			}
-			log.Println("Write packet")
 		} else {
-			// wr.WriteTrailer()
 		}
 	}
 }
 
-func (wr *Writer) WriteHeader() {
-	log.Println("Write Header")
-	if err := wr.encFmt.WriteHeader(nil); err != nil {
-		log.Fatalf("Failed to write header: %v\n", err)
+func (wr *Writer) writeHeader() {
+	if err := wr.OutputContex.WriteHeader(); err != nil {
+		log.Println("ERROR: on write header to output; ", err.Error())
 	}
 }
 
-func (wr *Writer) WriteTrailer() {
-	log.Println("Write Trailer")
-	if err := wr.encFmt.WriteTrailer(); err != nil {
-		log.Fatalf("Failed to write trailer: %v\n", err)
-	}
+func (wr *Writer) writeTrailer() {
+	wr.OutputContex.WriteTrailer()
+}
+
+func (wr *Writer) free() {
+	wr.OutputContex.CloseOutputAndRelease()
 }

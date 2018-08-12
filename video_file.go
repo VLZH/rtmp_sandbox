@@ -1,139 +1,106 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
-	"github.com/imkira/go-libav/avcodec"
-	"github.com/imkira/go-libav/avformat"
-	"github.com/imkira/go-libav/avutil"
+	"github.com/3d0c/gmf"
 )
 
+// VFile is
 type VFile struct {
 	Name string
-	// decode
-	decFmt    *avformat.Context // demuxer context
-	decStream *avformat.Stream  // video stream
-	codecCtx  *avcodec.Context
-	//
-	decPkt   *avcodec.Packet
-	decFrame *avutil.Frame
+	// input
+	InputContext      *gmf.FmtCtx
+	InputVideoStream  *gmf.Stream // video stream for detecting codec
+	InputCodecContext *gmf.CodecCtx
+	InputCodec        *gmf.Codec
+	// output
+	OutputCodecContext *gmf.CodecCtx
+	OutputCodec        *gmf.Codec
+	// meta
+	Height int
+	Width  int
 }
 
-func (v *VFile) prepareContext() {
+// ReadPacket is
+func (v *VFile) readPacket() (*gmf.Packet, error) {
+	return v.getNextFlvPacket(), nil
+}
+
+// Prepare is
+func (v *VFile) prepare() error {
 	var err error
-	v.alloc()
-	v.decFmt, err = avformat.NewContextForInput()
+	// input
+	v.InputContext, err = gmf.NewInputCtx(v.Name)
 	if err != nil {
-		log.Fatalf("Failed to open input context: %v\n", err)
+		log.Println("ERROR: on getting context for input", err.Error())
 	}
-	options := avutil.NewDictionary()
-	defer options.Free()
-	// open
-	if err = v.decFmt.OpenInput(v.Name, nil, options); err != nil {
-		log.Fatalf("Failed to open input file: %v\n", err)
-	}
-	// find streams
-	if err := v.decFmt.FindStreamInfo(nil); err != nil {
-		log.Fatalf("Failed to find stream info: %v\n", err)
-	}
-	// dump streams to standard output
-	v.decFmt.Dump(0, v.Name, false)
-
-	//
-	// PREPARE FIRST VIDEO STREAM FOR DECODING
-	//
-
-	// find first video stream
-	if v.decStream = getFirstVideoStream(v.decFmt); v.decStream == nil {
-		log.Fatalf("Could not find a video stream. Aborting...\n")
-	}
-	// get codec context
-	v.codecCtx = v.decStream.CodecContext()
-	// get codec
-	codec := avcodec.FindDecoderByID(v.codecCtx.CodecID())
-	if codec == nil {
-		log.Fatalf("Could not find decoder: %v\n", v.codecCtx.CodecID())
-	}
-	if err = v.codecCtx.OpenWithCodec(codec, nil); err != nil {
-		log.Fatalf("Failed to open codec: %v\n", err)
-	}
-}
-
-func (v *VFile) readPacket() bool {
-	// reading
-	reading, err := v.decFmt.ReadFrame(v.decPkt)
+	v.InputVideoStream, err = v.InputContext.GetBestStream(gmf.AVMEDIA_TYPE_VIDEO)
 	if err != nil {
-		log.Fatalf("Failed to read packet: %v\n", err)
+		log.Println("ERROR: on getting best stream from input context", err.Error())
 	}
-	if !reading {
-		return false
+	v.InputCodecContext = v.InputVideoStream.CodecCtx()
+	v.InputCodec = v.InputCodecContext.Codec()
+	v.Width = v.InputCodecContext.Width()
+	v.Height = v.InputCodecContext.Height()
+	log.Printf("INFO: Input codec width: %v, height: %v \n", v.Width, v.Height)
+	log.Println("INFO: Streams:")
+	for i := 0; i < v.InputContext.StreamsCnt(); i++ {
+		srcStream, err := v.InputContext.GetStream(i)
+		if err != nil {
+			log.Println("ERROR: on getting stream by index: ", i, err.Error())
+		}
+		log.Printf(
+			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v \n",
+			srcStream.Index(), srcStream.IsAudio(), srcStream.IsVideo(),
+			srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Codec().Id())
 	}
-	defer v.decPkt.Unref()
-	// is video packet?
-	if v.decPkt.StreamIndex() != v.decStream.Index() {
-		return true
-	}
-	log.Println("RescaleTime; Stream timebase: ", v.decStream.TimeBase(), ";  Codec context timebase: ", v.codecCtx.TimeBase())
-	v.decPkt.RescaleTime(v.decStream.TimeBase(), v.codecCtx.TimeBase())
-	var readed bool
-	if v.decPkt.Size() > 0 && v.decPkt.PTS() >= 0 {
-		fmt.Println("Packet size:", v.decPkt.Size(), "Packet PTS:", v.decPkt.PTS())
-		readed = true
-	}
-	return readed
-}
-
-func (v *VFile) readPacketT() (*avcodec.Packet, error) {
-	var err error
-	var pkt *avcodec.Packet
-	if pkt, err = avcodec.NewPacket(); err != nil {
-		return nil, err
-	}
-	// reading
-	reading, err := v.decFmt.ReadFrame(pkt)
+	// output
+	v.OutputCodec, err = gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
 	if err != nil {
-		log.Fatalf("Failed to read packet: %v\n", err)
+		log.Println("ERROR: on finding flv codec", err.Error())
 	}
-	if !reading {
-		return pkt, fmt.Errorf("Cannot to read packet")
+	v.OutputCodecContext = gmf.NewCodecCtx(v.OutputCodec)
+	v.OutputCodecContext.SetBitRate(40000).
+		SetWidth(v.InputCodecContext.Width()).
+		SetHeight(v.InputCodecContext.Width()).
+		SetPixFmt(v.InputCodecContext.PixFmt()).
+		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
+	if err = v.OutputCodecContext.Open(nil); err != nil {
+		log.Println("ERROR: on open codecContext", err.Error())
 	}
-	defer v.decPkt.Unref()
-	// is video packet?
-	if v.decPkt.StreamIndex() != v.decStream.Index() {
-		return nil, nil
-	}
-	log.Println("RescaleTime; Stream timebase: ", v.decStream.TimeBase(), ";  Codec context timebase: ", v.codecCtx.TimeBase())
-	v.decPkt.RescaleTime(v.decStream.TimeBase(), v.codecCtx.TimeBase())
-	fmt.Println("Packet size:", pkt.Size(), "Packet PTS:", pkt.PTS())
-	return pkt, nil
-}
-
-func (v *VFile) alloc() error {
-	var err error
-	if v.decPkt, err = avcodec.NewPacket(); err != nil {
-		return err
-	}
-	if v.decFrame, err = avutil.NewFrame(); err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (v *VFile) free() {
-	v.decFmt.Free()
-	v.codecCtx.Free()
-	v.decPkt.Free()
-	v.decFrame.Free()
+	v.InputContext.CloseInputAndRelease()
+	gmf.Release(v.InputVideoStream)
+	gmf.Release(v.InputCodecContext)
+	gmf.Release(v.InputCodec)
+	// output
+	gmf.Release(v.OutputCodec)
+	gmf.Release(v.OutputCodecContext)
 }
 
-func getFirstVideoStream(fmtCtx *avformat.Context) *avformat.Stream {
-	log.Println("Filename: ", fmtCtx.FileName(), "Streams count: ", len(fmtCtx.Streams()))
-	for _, stream := range fmtCtx.Streams() {
-		switch stream.CodecContext().CodecType() {
-		case avutil.MediaTypeVideo:
-			return stream
-		}
+// TODO: rename or move code about audio to func readPacket
+func (v *VFile) getNextFlvPacket() *gmf.Packet {
+	var err error
+	ip := v.InputContext.GetNextPacket()
+	defer gmf.Release(ip)
+	if ip.StreamIndex() == v.InputVideoStream.Index() {
+		op := ip.Clone()
+		return op
 	}
-	return nil
+	f, err := ip.Frames(v.InputCodecContext)
+	if err != nil {
+		log.Println("ERROR: on getting frame from packet", err.Error())
+	}
+	defer gmf.Release(f)
+	of := f.CloneNewFrame()
+	defer gmf.Release(of)
+	op, err := of.Encode(v.OutputCodecContext)
+	if err != nil {
+		log.Println("ERROR: on encoding to flv", err.Error())
+	}
+	return op
 }

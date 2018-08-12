@@ -3,6 +3,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/3d0c/gmf"
+  packages = ["."]
+  revision = "c87ea97893a8577c492af7e9fd50afb19ea20988"
+
+[[projects]]
+  branch = "master"
   name = "github.com/imkira/go-libav"
   packages = [
     "avcodec",
@@ -12,15 +18,9 @@
   ]
   revision = "ab207a9a7592d50464a5dae46713a91b9721000b"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/nareix/joy4"
-  packages = ["av"]
-  revision = "f98bf9bd9e1f1c9dd66dde2d7776871242ca2ba8"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "124a61af86b28c74f7b09a9d260b8fe7ae86aac642cd547f4c444f8d8a2aee34"
+  inputs-digest = "2af658a162a8ca198e23551f234db8d0dfa26543f1fea06d3c2d5daa658381bd"
   solver-name = "gps-cdcl"
   solver-version = 1

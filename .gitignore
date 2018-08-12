@@ -8,7 +8,9 @@ tmp
 vendor
 stream
 
+# builds
 stream_sandbox
 debug
+main
 
 *.flv
