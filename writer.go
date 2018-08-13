@@ -51,7 +51,7 @@ func (wr *Writer) Prepare() {
 	// acc := gmf.NewCodecCtx(ac)
 	// sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
 	// TODO: sv as audio!!!
-	log.Printf("INFO: output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sv.Index(), wr.OutputContex.StreamsCnt())
+	log.Printf("INFO: Output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sv.Index(), wr.OutputContex.StreamsCnt())
 	wr.writeHeader()
 }
 
@@ -61,7 +61,6 @@ func (wr *Writer) StartLoop() {
 	for {
 		pkt := <-wr.Ch
 		if pkt != nil {
-			log.Printf("INFO: Packet pts: %v, data size: %v stream index: %v \n", pkt.Pts(), len(pkt.Data()), pkt.StreamIndex())
 			err = wr.OutputContex.WritePacket(pkt)
 			gmf.Release(pkt)
 			if err != nil {

@@ -43,6 +43,7 @@ func (v *VFile) prepare() error {
 	}
 	v.InputCodecContext = v.InputVideoStream.CodecCtx()
 	v.InputCodec = v.InputCodecContext.Codec()
+	// height, width
 	v.Width = v.InputCodecContext.Width()
 	v.Height = v.InputCodecContext.Height()
 	log.Printf("INFO: Input codec width: %v, height: %v \n", v.Width, v.Height)
@@ -63,9 +64,9 @@ func (v *VFile) prepare() error {
 		log.Println("ERROR: on finding flv codec", err.Error())
 	}
 	v.OutputCodecContext = gmf.NewCodecCtx(v.OutputCodec)
-	v.OutputCodecContext.SetBitRate(40000).
+	v.OutputCodecContext.SetBitRate(v.InputCodecContext.BitRate()).
 		SetWidth(v.InputCodecContext.Width()).
-		SetHeight(v.InputCodecContext.Width()).
+		SetHeight(v.InputCodecContext.Height()).
 		SetPixFmt(v.InputCodecContext.PixFmt()).
 		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
 	if err = v.OutputCodecContext.Open(nil); err != nil {
@@ -90,13 +91,18 @@ func (v *VFile) getNextFlvPacket() *gmf.Packet {
 	for {
 		var err error
 		ip := v.InputContext.GetNextPacket()
-		if ip.StreamIndex() == v.InputAudioStream.Index() {
+		if ip == nil {
+			continue
+		}
+		// skip audio stream
+		if ip.StreamIndex() != v.InputVideoStream.Index() {
 			// op := ip.Clone()
+			// defer gmf.Release(ip)
 			// return op
 			gmf.Release(ip)
 			continue
 		}
-		log.Println("INFO: Packet data size: ", len(ip.Data()), v.InputCodecContext.Type())
+		// log.Printf("INFO: Packet data size: %v; type: %v; duration: %v \n", len(ip.Data()), v.InputCodecContext.Type(), ip.Duration())
 		defer gmf.Release(ip)
 		f, err := ip.Frames(v.InputCodecContext)
 		if err != nil {
@@ -106,6 +112,11 @@ func (v *VFile) getNextFlvPacket() *gmf.Packet {
 		of := f.CloneNewFrame()
 		defer gmf.Release(of)
 		op, err := of.Encode(v.OutputCodecContext)
+		log.Printf(`
+New packet in chan:
+Source packet:      | dts: %v; data size: %v; duration: %v;
+Destination packet: | dts: %v; data size: %v; duration: %v;
+		`, ip.Dts(), len(ip.Data()), ip.Duration(), ip.Dts(), len(op.Data()), op.Duration())
 		if err != nil {
 			log.Println("ERROR: on encoding to flv", err.Error())
 		}

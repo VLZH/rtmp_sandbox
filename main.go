@@ -10,8 +10,8 @@ import (
 func asyncCopyPackets() {
 	ch := make(chan *gmf.Packet)
 	files := []*VFile{
-		&VFile{Name: "./1mp3.mp4"},
-		&VFile{Name: "./2mp3.mp4"},
+		&VFile{Name: "./1.mp4"},
+		&VFile{Name: "./2.mp4"},
 	}
 	reader, _ := CreateReader(ch, files)
 	// rtmp := "rtmp://live-prg.twitch.tv/live_129862765_H7988wWNq4m2kNaPPwnHkIxRKIsoDB"
