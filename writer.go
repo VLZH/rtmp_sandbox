@@ -38,10 +38,8 @@ func (wr *Writer) Prepare() {
 	vcc := gmf.NewCodecCtx(vc).
 		SetHeight(320).
 		SetWidth(620).
-		SetPixFmt(gmf.AV_PIX_FMT_RGB32).
-		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
+		SetPixFmt(gmf.AV_PIX_FMT_RGB32)
 	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
-	sv = sv.SetTimeBase(gmf.AVR{Num: 1, Den: 25})
 	// audio
 	// ac, err := gmf.FindDecoder("mp3")
 	// if err != nil {
@@ -67,8 +65,8 @@ func (wr *Writer) StartLoop() {
 				log.Println("ERROR: on writing packet to output context", err.Error())
 			}
 		} else {
-			wr.writeTrailer()
-			wr.free()
+			// wr.writeTrailer()
+			// wr.free()
 		}
 	}
 }

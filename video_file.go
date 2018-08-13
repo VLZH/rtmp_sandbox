@@ -23,11 +23,6 @@ type VFile struct {
 	Width  int
 }
 
-// ReadPacket is
-func (v *VFile) readPacket() (*gmf.Packet, error) {
-	return v.getNextFlvPacket(), nil
-}
-
 // Prepare is
 func (v *VFile) prepare() error {
 	var err error
@@ -54,7 +49,7 @@ func (v *VFile) prepare() error {
 			log.Println("ERROR: on getting stream by index: ", i, err.Error())
 		}
 		log.Printf(
-			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v, Timebase: +%v\n",
+			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v, Timebase: %+v\n",
 			srcStream.Index(), srcStream.IsAudio(), srcStream.IsVideo(),
 			srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Codec().Id(),
 			srcStream.TimeBase())
@@ -87,8 +82,7 @@ func (v *VFile) free() {
 	gmf.Release(v.OutputCodecContext)
 }
 
-// TODO: rename or move code about audio to func readPacket
-func (v *VFile) getNextFlvPacket() *gmf.Packet {
+func (v *VFile) readPacket() *gmf.Packet {
 	for {
 		var err error
 		ip := v.InputContext.GetNextPacket()
@@ -97,22 +91,17 @@ func (v *VFile) getNextFlvPacket() *gmf.Packet {
 		}
 		// skip audio stream
 		if ip.StreamIndex() != v.InputVideoStream.Index() {
-			// op := ip.Clone()
-			// defer gmf.Release(ip)
-			// return op
 			gmf.Release(ip)
 			continue
 		}
-		// log.Printf("INFO: Packet data size: %v; type: %v; duration: %v \n", len(ip.Data()), v.InputCodecContext.Type(), ip.Duration())
 		defer gmf.Release(ip)
 		f, err := ip.Frames(v.InputCodecContext)
 		if err != nil {
 			log.Println("ERROR: on getting frame from packet", err.Error())
 		}
 		defer gmf.Release(f)
-		of := f.CloneNewFrame()
-		defer gmf.Release(of)
-		op, err := of.Encode(v.OutputCodecContext)
+		op, err := f.Encode(v.OutputCodecContext)
+		gmf.RescaleTs(op, v.InputVideoStream.TimeBase(), gmf.AVR{Num: 1, Den: 1000}.AVRational())
 		log.Printf(`
 New packet in chan:
 Source packet:      | pts: %v; data size: %v; duration: %v;

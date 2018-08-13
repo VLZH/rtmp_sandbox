@@ -11,12 +11,13 @@ func asyncCopyPackets() {
 	ch := make(chan *gmf.Packet)
 	chclose := make(chan bool)
 	files := []*VFile{
-		&VFile{Name: "./2.mp4"},
 		&VFile{Name: "./1.mp4"},
+		&VFile{Name: "./2.mp4"},
 	}
 	reader, _ := CreateReader(ch, chclose, files)
-	// rtmp := "rtmp://live-prg.twitch.tv/live_129862765_H7988wWNq4m2kNaPPwnHkIxRKIsoDB"
-	writer, _ := CreateWriter(ch, chclose, "./t.flv")
+	// rtmp := "rtmp://localhost:1935/stream/"
+	rtmp := "_"
+	writer, _ := CreateWriter(ch, chclose, rtmp)
 	// read
 	log.Println("INFO: Reader Start Loop")
 	go reader.StartLoop()
@@ -25,7 +26,7 @@ func asyncCopyPackets() {
 	writer.Prepare()
 	log.Println("INFO: Writer Start Loop")
 	go writer.StartLoop()
-	time.Sleep(time.Minute * 4)
+	time.Sleep(time.Minute * 60)
 }
 
 func main() {
