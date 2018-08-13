@@ -12,6 +12,7 @@ type VFile struct {
 	// input
 	InputContext      *gmf.FmtCtx
 	InputVideoStream  *gmf.Stream // video stream for detecting codec
+	InputAudioStream  *gmf.Stream // video stream for detecting codec
 	InputCodecContext *gmf.CodecCtx
 	InputCodec        *gmf.Codec
 	// output
@@ -36,6 +37,7 @@ func (v *VFile) prepare() error {
 		log.Println("ERROR: on getting context for input", err.Error())
 	}
 	v.InputVideoStream, err = v.InputContext.GetBestStream(gmf.AVMEDIA_TYPE_VIDEO)
+	v.InputAudioStream, err = v.InputContext.GetBestStream(gmf.AVMEDIA_TYPE_AUDIO)
 	if err != nil {
 		log.Println("ERROR: on getting best stream from input context", err.Error())
 	}
@@ -75,6 +77,7 @@ func (v *VFile) prepare() error {
 func (v *VFile) free() {
 	v.InputContext.CloseInputAndRelease()
 	gmf.Release(v.InputVideoStream)
+	gmf.Release(v.InputAudioStream)
 	gmf.Release(v.InputCodecContext)
 	gmf.Release(v.InputCodec)
 	// output
@@ -84,23 +87,28 @@ func (v *VFile) free() {
 
 // TODO: rename or move code about audio to func readPacket
 func (v *VFile) getNextFlvPacket() *gmf.Packet {
-	var err error
-	ip := v.InputContext.GetNextPacket()
-	defer gmf.Release(ip)
-	if ip.StreamIndex() == v.InputVideoStream.Index() {
-		op := ip.Clone()
+	for {
+		var err error
+		ip := v.InputContext.GetNextPacket()
+		if ip.StreamIndex() == v.InputAudioStream.Index() {
+			// op := ip.Clone()
+			// return op
+			gmf.Release(ip)
+			continue
+		}
+		log.Println("INFO: Packet data size: ", len(ip.Data()), v.InputCodecContext.Type())
+		defer gmf.Release(ip)
+		f, err := ip.Frames(v.InputCodecContext)
+		if err != nil {
+			log.Println("ERROR: on getting frame from packet", err.Error())
+		}
+		defer gmf.Release(f)
+		of := f.CloneNewFrame()
+		defer gmf.Release(of)
+		op, err := of.Encode(v.OutputCodecContext)
+		if err != nil {
+			log.Println("ERROR: on encoding to flv", err.Error())
+		}
 		return op
 	}
-	f, err := ip.Frames(v.InputCodecContext)
-	if err != nil {
-		log.Println("ERROR: on getting frame from packet", err.Error())
-	}
-	defer gmf.Release(f)
-	of := f.CloneNewFrame()
-	defer gmf.Release(of)
-	op, err := of.Encode(v.OutputCodecContext)
-	if err != nil {
-		log.Println("ERROR: on encoding to flv", err.Error())
-	}
-	return op
 }

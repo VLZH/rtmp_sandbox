@@ -34,19 +34,24 @@ func (wr *Writer) Prepare() {
 	if err != nil {
 		log.Println("ERROR: on finding encoder for flv in writer", err.Error())
 	}
-	log.Printf("INFO: Output video codec: %v \n", vc.Name())
-	vcc := gmf.NewCodecCtx(vc)
-	// audio
-	ac, err := gmf.FindEncoder("libmp3lame")
-	if err != nil {
-		log.Println("ERROR: on finding encoder for mp3 in writer", err.Error())
-	}
-	log.Printf("INFO: Output audio codec: %v \n", ac.Name())
-	acc := gmf.NewCodecCtx(ac)
-	// add Streams
+	log.Printf("INFO: Output video codec: %v, id: %v, full: %v \n", vc.Name(), vc.Id(), vc.LongName())
+	vcc := gmf.NewCodecCtx(vc).
+		SetHeight(320).
+		SetWidth(620).
+		SetPixFmt(gmf.AV_PIX_FMT_RGB32).
+		SetBitRate(40000).
+		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
 	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
-	sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
-	log.Printf("INFO: output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sa.Index(), wr.OutputContex.StreamsCnt())
+	// audio
+	// ac, err := gmf.FindDecoder("mp3")
+	// if err != nil {
+	// 	log.Println("ERROR: on finding encoder for mp3 in writer", err.Error())
+	// }
+	// log.Printf("INFO: Output audio codec: %v, id: %v, full: %v \n", ac.Name(), ac.Id(), ac.LongName())
+	// acc := gmf.NewCodecCtx(ac)
+	// sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
+	// TODO: sv as audio!!!
+	log.Printf("INFO: output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sv.Index(), wr.OutputContex.StreamsCnt())
 	wr.writeHeader()
 }
 

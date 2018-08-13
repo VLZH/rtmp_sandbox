@@ -5,12 +5,7 @@ import (
 	"time"
 
 	"github.com/3d0c/gmf"
-	"github.com/imkira/go-libav/avformat"
 )
-
-func init() {
-	avformat.RegisterAll()
-}
 
 func asyncCopyPackets() {
 	ch := make(chan *gmf.Packet)
