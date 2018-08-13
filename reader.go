@@ -2,17 +2,17 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/nareix/joy4/av"
+	"github.com/3d0c/gmf"
 )
 
 // CreateReader return new Reader with chanel
-func CreateReader(ch chan av.Packet, headCh chan []av.CodecData, files []*VFile) (Reader, chan bool) {
+func CreateReader(ch chan *gmf.Packet, chclose chan bool, files []*VFile) (Reader, chan bool) {
 	r := Reader{
 		Ch:      ch,
-		HeadCh:  headCh,
-		CloseCh: make(chan bool),
+		CloseCh: chclose,
 		Files:   files,
 	}
 	return r, r.CloseCh
@@ -20,8 +20,7 @@ func CreateReader(ch chan av.Packet, headCh chan []av.CodecData, files []*VFile)
 
 // Reader is
 type Reader struct {
-	Ch      chan av.Packet
-	HeadCh  chan []av.CodecData
+	Ch      chan *gmf.Packet
 	CloseCh chan bool
 	Files   []*VFile
 	Idx     int
@@ -29,45 +28,30 @@ type Reader struct {
 
 func (r *Reader) StartLoop() {
 	var cFile *VFile
-	times := make(map[int8]time.Duration)
+	startTime := time.Now().UnixNano()
+	prevFilePts := int64(0)
+	prevPacketPts := int64(0)
+	timeDiff := int64(0)
 	for {
 		cFile = r.GetNextFile()
-		fmt.Printf("Next file; %s \n", cFile)
-		demuxer, err := cFile.GetDemuxer()
-		if err != nil {
-			fmt.Printf("Error on getting demuxer from VFile %s \n", cFile)
-			fmt.Println(err)
-			r.CloseCh <- true
-		}
-		// Write headers
-		codecDat, err := demuxer.Streams()
-		if err != nil {
-			fmt.Printf("Error on getting streams from Demuxer %s \n", cFile)
-			fmt.Println(err)
-			r.CloseCh <- true
-		}
-		r.HeadCh <- codecDat
-		// Write packets
+		log.Printf("INFO: File: %v \n", cFile.Name)
+		cFile.prepare()
 		for {
-			pkg, err := demuxer.ReadPacket()
-			// update time
-			t, ok := times[pkg.Idx]
-			if !ok {
-				times[pkg.Idx] = 0
-			}
-			if pkg.Time < t {
-				times[pkg.Idx] = t + pkg.Time
-			} else {
-				times[pkg.Idx] = pkg.Time
-			}
-			pkg.Time = times[pkg.Idx]
-			if err != nil {
-				fmt.Println("Error on getting packet;", err)
+			pkt := cFile.readPacket()
+			if pkt == nil {
+				prevFilePts = prevPacketPts
 				break
 			}
-			r.Ch <- pkg
+			pkt.SetPts(pkt.Pts() + prevFilePts)
+			pkt.SetDts(pkt.Dts() + prevFilePts)
+			prevPacketPts = pkt.Pts()
+			timeDiff = (time.Now().UnixNano() - startTime) / int64(1000000)
+			fmt.Println("Sleep: ", prevPacketPts-timeDiff, " Millisecond", timeDiff)
+			time.Sleep(time.Millisecond * time.Duration(prevPacketPts-timeDiff))
+			r.Ch <- pkt
 		}
-		demuxer.Close()
+		cFile.free()
+		fmt.Println("End of file", cFile)
 	}
 }
 

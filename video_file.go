@@ -1,47 +1,115 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
-	"github.com/nareix/joy4/av"
-	"github.com/nareix/joy4/av/avutil"
-	"github.com/nareix/joy4/av/pktque"
-	"github.com/nareix/joy4/av/transcode"
-	"github.com/nareix/joy4/cgo/ffmpeg"
+	"github.com/3d0c/gmf"
 )
 
+// VFile is
 type VFile struct {
 	Name string
+	// input
+	InputContext      *gmf.FmtCtx
+	InputVideoStream  *gmf.Stream // video stream for detecting codec
+	InputAudioStream  *gmf.Stream // video stream for detecting codec
+	InputCodecContext *gmf.CodecCtx
+	InputCodec        *gmf.Codec
+	// output
+	OutputCodecContext *gmf.CodecCtx
+	OutputCodec        *gmf.Codec
+	// meta
+	Height int
+	Width  int
 }
 
-// GetDemuxer is function for getting demuxer from file
-func (vf *VFile) GetDemuxer() (av.DemuxCloser, error) {
-	file, err := avutil.Open(vf.Name)
+// Prepare is
+func (v *VFile) prepare() error {
+	var err error
+	// input
+	v.InputContext, err = gmf.NewInputCtx(v.Name)
 	if err != nil {
-		fmt.Println("Error on open mp4 file;", err.Error())
-		return nil, err
+		log.Println("ERROR: on getting context for input", err.Error())
 	}
-	demuxer := &pktque.FilterDemuxer{Demuxer: file, Filter: &pktque.Walltime{}}
-	findcodec := func(stream av.AudioCodecData, i int) (need bool, dec av.AudioDecoder, enc av.AudioEncoder, err error) {
-		need = true
-		dec, _ = ffmpeg.NewAudioDecoder(stream)
-		enc, _ = ffmpeg.NewAudioEncoderByName("aac_at")
-		err = enc.SetSampleRate(stream.SampleRate())
+	v.InputVideoStream, err = v.InputContext.GetBestStream(gmf.AVMEDIA_TYPE_VIDEO)
+	v.InputAudioStream, err = v.InputContext.GetBestStream(gmf.AVMEDIA_TYPE_AUDIO)
+	if err != nil {
+		log.Println("ERROR: on getting best stream from input context", err.Error())
+	}
+	v.InputCodecContext = v.InputVideoStream.CodecCtx()
+	v.InputCodec = v.InputCodecContext.Codec()
+	// height, width
+	v.Width = v.InputCodecContext.Width()
+	v.Height = v.InputCodecContext.Height()
+	log.Printf("INFO: Input codec width: %v, height: %v \n", v.Width, v.Height)
+	log.Println("INFO: Streams:")
+	for i := 0; i < v.InputContext.StreamsCnt(); i++ {
+		srcStream, err := v.InputContext.GetStream(i)
 		if err != nil {
-			fmt.Println("Error on SetSampleRate")
+			log.Println("ERROR: on getting stream by index: ", i, err.Error())
 		}
-		fmt.Println(stream.SampleRate(), "rate")
-		enc.SetChannelLayout(av.CH_STEREO)
-		enc.SetBitrate(48000)
-		enc.SetOption("profile", "HE-AACv2")
-		return
+		log.Printf(
+			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v, Timebase: %+v\n",
+			srcStream.Index(), srcStream.IsAudio(), srcStream.IsVideo(),
+			srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Codec().Id(),
+			srcStream.TimeBase())
 	}
+	// output
+	v.OutputCodec, err = gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
+	if err != nil {
+		log.Println("ERROR: on finding flv codec", err.Error())
+	}
+	v.OutputCodecContext = gmf.NewCodecCtx(v.OutputCodec)
+	v.OutputCodecContext.SetBitRate(v.InputCodecContext.BitRate()).
+		SetWidth(v.InputCodecContext.Width()).
+		SetHeight(v.InputCodecContext.Height()).
+		SetPixFmt(v.InputCodecContext.PixFmt()).
+		SetTimeBase(v.InputCodecContext.TimeBase().AVR())
+	if err = v.OutputCodecContext.Open(nil); err != nil {
+		log.Println("ERROR: on open codecContext", err.Error())
+	}
+	return err
+}
 
-	trans := &transcode.Demuxer{
-		Options: transcode.Options{
-			FindAudioDecoderEncoder: findcodec,
-		},
-		Demuxer: demuxer,
+func (v *VFile) free() {
+	v.InputContext.CloseInputAndRelease()
+	gmf.Release(v.InputVideoStream)
+	gmf.Release(v.InputAudioStream)
+	gmf.Release(v.InputCodecContext)
+	gmf.Release(v.InputCodec)
+	// output
+	gmf.Release(v.OutputCodec)
+	gmf.Release(v.OutputCodecContext)
+}
+
+func (v *VFile) readPacket() *gmf.Packet {
+	for {
+		var err error
+		ip := v.InputContext.GetNextPacket()
+		if ip == nil {
+			return nil
+		}
+		// skip audio stream
+		if ip.StreamIndex() != v.InputVideoStream.Index() {
+			gmf.Release(ip)
+			continue
+		}
+		defer gmf.Release(ip)
+		f, err := ip.Frames(v.InputCodecContext)
+		if err != nil {
+			log.Println("ERROR: on getting frame from packet", err.Error())
+		}
+		defer gmf.Release(f)
+		op, err := f.Encode(v.OutputCodecContext)
+		gmf.RescaleTs(op, v.InputVideoStream.TimeBase(), gmf.AVR{Num: 1, Den: 1000}.AVRational())
+		log.Printf(`
+New packet in chan:
+Source packet:      | pts: %v; data size: %v; duration: %v;
+Destination packet: | pts: %v; data size: %v; duration: %v;
+		`, ip.Pts(), len(ip.Data()), ip.Duration(), op.Pts(), len(op.Data()), op.Duration())
+		if err != nil {
+			log.Println("ERROR: on encoding to flv", err.Error())
+		}
+		return op
 	}
-	return trans, nil
 }
