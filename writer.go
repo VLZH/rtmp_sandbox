@@ -7,7 +7,7 @@ import (
 )
 
 // CreateWriter is
-func CreateWriter(ch chan *gmf.Packet, dst string) (Writer, error) {
+func CreateWriter(ch chan *gmf.Packet, chclose chan bool, dst string) (Writer, error) {
 	return Writer{
 		Ch:          ch,
 		Destination: dst,
@@ -39,9 +39,9 @@ func (wr *Writer) Prepare() {
 		SetHeight(320).
 		SetWidth(620).
 		SetPixFmt(gmf.AV_PIX_FMT_RGB32).
-		SetBitRate(40000).
 		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
 	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
+	sv = sv.SetTimeBase(gmf.AVR{Num: 1, Den: 25})
 	// audio
 	// ac, err := gmf.FindDecoder("mp3")
 	// if err != nil {
@@ -67,17 +67,21 @@ func (wr *Writer) StartLoop() {
 				log.Println("ERROR: on writing packet to output context", err.Error())
 			}
 		} else {
+			wr.writeTrailer()
+			wr.free()
 		}
 	}
 }
 
 func (wr *Writer) writeHeader() {
+	log.Println("INFO: write header")
 	if err := wr.OutputContex.WriteHeader(); err != nil {
 		log.Println("ERROR: on write header to output; ", err.Error())
 	}
 }
 
 func (wr *Writer) writeTrailer() {
+	log.Println("INFO: write trailer")
 	wr.OutputContex.WriteTrailer()
 }
 

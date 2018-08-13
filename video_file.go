@@ -54,9 +54,10 @@ func (v *VFile) prepare() error {
 			log.Println("ERROR: on getting stream by index: ", i, err.Error())
 		}
 		log.Printf(
-			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v \n",
+			"Stream #%v; Is audio: %v; Is video: %v; Codec: %v, Codec id: %v, Timebase: +%v\n",
 			srcStream.Index(), srcStream.IsAudio(), srcStream.IsVideo(),
-			srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Codec().Id())
+			srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Codec().Id(),
+			srcStream.TimeBase())
 	}
 	// output
 	v.OutputCodec, err = gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
@@ -68,7 +69,7 @@ func (v *VFile) prepare() error {
 		SetWidth(v.InputCodecContext.Width()).
 		SetHeight(v.InputCodecContext.Height()).
 		SetPixFmt(v.InputCodecContext.PixFmt()).
-		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
+		SetTimeBase(v.InputCodecContext.TimeBase().AVR())
 	if err = v.OutputCodecContext.Open(nil); err != nil {
 		log.Println("ERROR: on open codecContext", err.Error())
 	}
@@ -92,7 +93,7 @@ func (v *VFile) getNextFlvPacket() *gmf.Packet {
 		var err error
 		ip := v.InputContext.GetNextPacket()
 		if ip == nil {
-			continue
+			return nil
 		}
 		// skip audio stream
 		if ip.StreamIndex() != v.InputVideoStream.Index() {
@@ -114,9 +115,9 @@ func (v *VFile) getNextFlvPacket() *gmf.Packet {
 		op, err := of.Encode(v.OutputCodecContext)
 		log.Printf(`
 New packet in chan:
-Source packet:      | dts: %v; data size: %v; duration: %v;
-Destination packet: | dts: %v; data size: %v; duration: %v;
-		`, ip.Dts(), len(ip.Data()), ip.Duration(), ip.Dts(), len(op.Data()), op.Duration())
+Source packet:      | pts: %v; data size: %v; duration: %v;
+Destination packet: | pts: %v; data size: %v; duration: %v;
+		`, ip.Pts(), len(ip.Data()), ip.Duration(), op.Pts(), len(op.Data()), op.Duration())
 		if err != nil {
 			log.Println("ERROR: on encoding to flv", err.Error())
 		}

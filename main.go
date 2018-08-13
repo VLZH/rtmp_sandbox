@@ -9,13 +9,14 @@ import (
 
 func asyncCopyPackets() {
 	ch := make(chan *gmf.Packet)
+	chclose := make(chan bool)
 	files := []*VFile{
-		&VFile{Name: "./1.mp4"},
 		&VFile{Name: "./2.mp4"},
+		&VFile{Name: "./1.mp4"},
 	}
-	reader, _ := CreateReader(ch, files)
+	reader, _ := CreateReader(ch, chclose, files)
 	// rtmp := "rtmp://live-prg.twitch.tv/live_129862765_H7988wWNq4m2kNaPPwnHkIxRKIsoDB"
-	writer, _ := CreateWriter(ch, "./t.flv")
+	writer, _ := CreateWriter(ch, chclose, "./t.flv")
 	// read
 	log.Println("INFO: Reader Start Loop")
 	go reader.StartLoop()

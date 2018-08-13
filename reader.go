@@ -8,10 +8,10 @@ import (
 )
 
 // CreateReader return new Reader with chanel
-func CreateReader(ch chan *gmf.Packet, files []*VFile) (Reader, chan bool) {
+func CreateReader(ch chan *gmf.Packet, chclose chan bool, files []*VFile) (Reader, chan bool) {
 	r := Reader{
 		Ch:      ch,
-		CloseCh: make(chan bool),
+		CloseCh: chclose,
 		Files:   files,
 	}
 	return r, r.CloseCh
@@ -29,6 +29,7 @@ func (r *Reader) StartLoop() {
 	var cFile *VFile
 	for {
 		cFile = r.GetNextFile()
+		log.Printf("INFO: File: %v \n", cFile.Name)
 		cFile.prepare()
 		for {
 			pkt, err := cFile.readPacket()
@@ -39,6 +40,7 @@ func (r *Reader) StartLoop() {
 			}
 			r.Ch <- pkt
 		}
+		cFile.free()
 		fmt.Println("End of file", cFile)
 	}
 }
