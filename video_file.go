@@ -8,7 +8,7 @@ import (
 
 // VFile is
 type VFile struct {
-	Name string
+	Path string
 	// input
 	InputContext      *gmf.FmtCtx
 	InputVideoStream  *gmf.Stream // video stream for detecting codec
@@ -24,10 +24,10 @@ type VFile struct {
 }
 
 // Prepare is
-func (v *VFile) prepare() error {
+func (v *VFile) Prepare() error {
 	var err error
 	// input
-	v.InputContext, err = gmf.NewInputCtx(v.Name)
+	v.InputContext, err = gmf.NewInputCtx(v.Path)
 	if err != nil {
 		log.Println("ERROR: on getting context for input", err.Error())
 	}
@@ -43,6 +43,7 @@ func (v *VFile) prepare() error {
 	v.Height = v.InputCodecContext.Height()
 	log.Printf("INFO: Input codec width: %v, height: %v \n", v.Width, v.Height)
 	log.Println("INFO: Streams:")
+	// print info about input file streams
 	for i := 0; i < v.InputContext.StreamsCnt(); i++ {
 		srcStream, err := v.InputContext.GetStream(i)
 		if err != nil {
@@ -91,7 +92,7 @@ func (v *VFile) free() {
 	gmf.Release(v.OutputCodecContext)
 }
 
-func (v *VFile) readPacket() *gmf.Packet {
+func (v *VFile) ReadPacket() *gmf.Packet {
 	var err error
 	var op *gmf.Packet
 	var currentPacketStream *gmf.Stream

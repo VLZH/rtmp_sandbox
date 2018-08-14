@@ -7,20 +7,9 @@
   packages = ["."]
   revision = "c87ea97893a8577c492af7e9fd50afb19ea20988"
 
-[[projects]]
-  branch = "master"
-  name = "github.com/imkira/go-libav"
-  packages = [
-    "avcodec",
-    "avfilter",
-    "avformat",
-    "avutil"
-  ]
-  revision = "ab207a9a7592d50464a5dae46713a91b9721000b"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2af658a162a8ca198e23551f234db8d0dfa26543f1fea06d3c2d5daa658381bd"
+  inputs-digest = "2f38709465afc88b2e2d87fb16341e642710dc9ae075c0e6e900e8cd35e84008"
   solver-name = "gps-cdcl"
   solver-version = 1

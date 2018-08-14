@@ -26,6 +26,7 @@ type Reader struct {
 	Idx     int
 }
 
+// StartLoop is
 func (r *Reader) StartLoop() {
 	var cFile *VFile
 	startTime := time.Now().UnixNano()
@@ -34,10 +35,10 @@ func (r *Reader) StartLoop() {
 	timeDiff := int64(0)
 	for {
 		cFile = r.GetNextFile()
-		log.Printf("INFO: File: %v \n", cFile.Name)
-		cFile.prepare()
+		log.Printf("INFO: File: %v \n", cFile.Path)
+		cFile.Prepare()
 		for {
-			pkt := cFile.readPacket()
+			pkt := cFile.ReadPacket()
 			if pkt == nil {
 				prevFilePts = prevPacketPts
 				break
@@ -55,6 +56,7 @@ func (r *Reader) StartLoop() {
 	}
 }
 
+// GetNextFile is
 func (r *Reader) GetNextFile() *VFile {
 	nextIndex := r.Idx + 1
 	if nextIndex >= len(r.Files) {
