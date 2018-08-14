@@ -64,7 +64,8 @@ func (v *VFile) prepare() error {
 		SetWidth(v.InputCodecContext.Width()).
 		SetHeight(v.InputCodecContext.Height()).
 		SetPixFmt(v.InputCodecContext.PixFmt()).
-		SetTimeBase(v.InputCodecContext.TimeBase().AVR())
+		SetTimeBase(v.InputCodecContext.TimeBase().AVR()).
+		SetFlag(gmf.SWS_BILINEAR)
 	if err = v.OutputCodecContext.Open(nil); err != nil {
 		log.Println("ERROR: on open codecContext", err.Error())
 	}
