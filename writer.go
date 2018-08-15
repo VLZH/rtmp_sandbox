@@ -30,9 +30,9 @@ func (wr *Writer) Prepare() {
 		log.Println("ERROR: on createing output context", err.Error())
 	}
 	// video
-	vc, err := gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
+	vc, err := gmf.FindEncoder(gmf.AV_CODEC_ID_H264)
 	if err != nil {
-		log.Println("ERROR: on finding encoder for flv in writer", err.Error())
+		log.Println("ERROR: on finding video encoder in writer", err.Error())
 	}
 	log.Printf("INFO: Output video codec: %v, id: %v, full: %v \n", vc.Name(), vc.Id(), vc.LongName())
 	vcc := gmf.NewCodecCtx(vc).
@@ -43,7 +43,7 @@ func (wr *Writer) Prepare() {
 	// audio
 	ac, err := gmf.FindDecoder("aac")
 	if err != nil {
-		log.Println("ERROR: on finding encoder for mp3 in writer", err.Error())
+		log.Println("ERROR: on finding audio encoder in writer", err.Error())
 	}
 	log.Printf("INFO: Output audio codec: %v, id: %v, full: %v \n", ac.Name(), ac.Id(), ac.LongName())
 	acc := gmf.NewCodecCtx(ac).SetSampleFmt(int32(8)).SetSampleRate(44100)

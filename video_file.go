@@ -64,9 +64,9 @@ func (v *VFile) Prepare() error {
 		}
 	}
 	// output
-	v.OutputCodec, err = gmf.FindEncoder(gmf.AV_CODEC_ID_FLV1)
+	v.OutputCodec, err = gmf.FindEncoder(gmf.AV_CODEC_ID_H264)
 	if err != nil {
-		log.Println("ERROR: on finding flv codec", err.Error())
+		log.Println("ERROR: on finding output codec", err.Error())
 	}
 	v.OutputCodecContext = gmf.NewCodecCtx(v.OutputCodec)
 	v.OutputCodecContext.SetBitRate(v.InputCodecContext.BitRate()).
@@ -74,7 +74,8 @@ func (v *VFile) Prepare() error {
 		SetHeight(v.InputCodecContext.Height()).
 		SetPixFmt(v.InputCodecContext.PixFmt()).
 		SetTimeBase(v.InputCodecContext.TimeBase().AVR()).
-		SetFlag(gmf.SWS_BILINEAR)
+		SetFlag(gmf.SWS_BILINEAR).
+		SetProfile(gmf.FF_PROFILE_H264_BASELINE)
 	if err = v.OutputCodecContext.Open(nil); err != nil {
 		log.Println("ERROR: on open codecContext", err.Error())
 	}
@@ -92,9 +93,11 @@ func (v *VFile) free() {
 	gmf.Release(v.OutputCodecContext)
 }
 
+// ReadPacket is
 func (v *VFile) ReadPacket() *gmf.Packet {
 	var err error
 	var op *gmf.Packet
+	var f *gmf.Frame
 	var currentPacketStream *gmf.Stream
 	ip := v.InputContext.GetNextPacket()
 	if ip == nil {
@@ -104,12 +107,21 @@ func (v *VFile) ReadPacket() *gmf.Packet {
 	if ip.StreamIndex() == v.InputVideoStream.Index() {
 		// is video packet
 		currentPacketStream = v.InputVideoStream
-		f, err := ip.Frames(v.InputCodecContext)
+		f, err = ip.Frames(v.InputCodecContext)
+		if f == nil {
+			return v.ReadPacket()
+		}
 		if err != nil {
 			log.Println("ERROR: on getting frame from packet", err.Error())
 		}
 		defer gmf.Release(f)
 		op, err = f.Encode(v.OutputCodecContext)
+		if op == nil {
+			return v.ReadPacket()
+		}
+		if err != nil {
+			log.Println("ERROR: on encoding", err.Error())
+		}
 	} else if ip.StreamIndex() == v.InputAudioStream.Index() {
 		// is audio
 		currentPacketStream = v.InputAudioStream
@@ -121,8 +133,5 @@ New packet in chan:
 Source packet:      | pts: %v; data size: %v; duration: %v;
 Destination packet: | pts: %v; data size: %v; duration: %v;
 		`, ip.Pts(), len(ip.Data()), ip.Duration(), op.Pts(), len(op.Data()), op.Duration())
-	if err != nil {
-		log.Println("ERROR: on encoding to flv", err.Error())
-	}
 	return op
 }
