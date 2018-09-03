@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/3d0c/gmf"
 )
@@ -38,6 +39,7 @@ func (wr *Writer) Prepare() {
 	vcc := gmf.NewCodecCtx(vc).
 		SetHeight(320).
 		SetWidth(620).
+		SetProfile(gmf.FF_PROFILE_H264_BASELINE).
 		SetPixFmt(gmf.AV_PIX_FMT_RGB32)
 	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
 	// audio
@@ -48,7 +50,6 @@ func (wr *Writer) Prepare() {
 	log.Printf("INFO: Output audio codec: %v, id: %v, full: %v \n", ac.Name(), ac.Id(), ac.LongName())
 	acc := gmf.NewCodecCtx(ac).SetSampleFmt(int32(8)).SetSampleRate(44100)
 	sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
-	// TODO: sv as audio!!!
 	log.Printf("INFO: Output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sa.Index(), wr.OutputContex.StreamsCnt())
 	wr.writeHeader()
 }
@@ -56,14 +57,24 @@ func (wr *Writer) Prepare() {
 // StartLoop is function for starting listen chan of packets and write they to muxer
 func (wr *Writer) StartLoop() {
 	var err error
+	var prevPacketTime int64
+	var currentPacketTime int64
 	for {
 		pkt := <-wr.Ch
 		if pkt != nil {
-			err = wr.OutputContex.WritePacket(pkt)
+			err = wr.OutputContex.WritePacketNoBuffer(pkt)
 			gmf.Release(pkt)
 			if err != nil {
 				log.Println("ERROR: on writing packet to output context", err.Error())
 			}
+			currentPacketTime = time.Now().UnixNano()
+			if prevPacketTime != 0 {
+				log.Printf(
+					"Time since previous packet: %v\n",
+					sred((currentPacketTime-prevPacketTime)/1000000),
+				)
+			}
+			prevPacketTime = currentPacketTime
 		} else {
 			// wr.writeTrailer()
 			// wr.free()

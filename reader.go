@@ -38,17 +38,21 @@ func (r *Reader) StartLoop() {
 		log.Printf("INFO: File: %v \n", cFile.Path)
 		cFile.Prepare()
 		for {
-			pkt := cFile.ReadPacket()
+			pkt, packet_type := cFile.ReadPacket()
 			if pkt == nil {
-				prevFilePts = prevPacketPts
+				prevFilePts = prevPacketPts + prevFilePts
 				break
 			}
+			// upgrade pts
 			pkt.SetPts(pkt.Pts() + prevFilePts)
 			pkt.SetDts(pkt.Dts() + prevFilePts)
 			prevPacketPts = pkt.Pts()
-			timeDiff = (time.Now().UnixNano() - startTime) / int64(1000000)
-			fmt.Println("Sleep: ", prevPacketPts-timeDiff, " Millisecond", timeDiff)
-			time.Sleep(time.Millisecond * time.Duration(prevPacketPts-timeDiff))
+			// sleep
+			if packet_type == IS_VIDEO {
+				timeDiff = (time.Now().UnixNano() - startTime) / int64(1000000)
+				// fmt.Println("Sleep: ", prevPacketPts-timeDiff, " Millisecond", timeDiff)
+				time.Sleep(time.Millisecond * time.Duration(prevPacketPts-timeDiff))
+			}
 			r.Ch <- pkt
 		}
 		cFile.free()

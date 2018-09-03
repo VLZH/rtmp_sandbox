@@ -7,9 +7,33 @@
   packages = ["."]
   revision = "c87ea97893a8577c492af7e9fd50afb19ea20988"
 
+[[projects]]
+  name = "github.com/fatih/color"
+  packages = ["."]
+  revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
+  version = "v1.7.0"
+
+[[projects]]
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
+  version = "v0.0.9"
+
+[[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c"
+  version = "v0.0.4"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "fa5fdf94c78965f1aa8423f0cc50b8b8d728b05a"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2f38709465afc88b2e2d87fb16341e642710dc9ae075c0e6e900e8cd35e84008"
+  inputs-digest = "c4e4af09c18720777216a71ebea1e98e952fa66003f771bc1ff6a79b08cfe8c5"
   solver-name = "gps-cdcl"
   solver-version = 1
