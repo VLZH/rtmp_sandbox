@@ -50,8 +50,6 @@ func (r *Reader) StartLoop() {
 				frame.SetPts(pts)
 				frame.SetPktPts(pts)
 				frame.SetPktDts(int(pts))
-				log.Printf("Pts: %v; SetPktPts: %v; SetPktDts: %v; Time Base: %+v", frame.Pts(), frame.PktPts(), frame.PktDts(), cf.TimeBase)
-
 			}
 			r.Ch <- cf
 		}

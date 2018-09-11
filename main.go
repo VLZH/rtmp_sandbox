@@ -31,8 +31,8 @@ func asyncCopyPackets() {
 		&VFile{Path: "./2.mp4", DestHeight: 320, DestWidth: 640},
 	}
 	reader, _ := CreateReader(ch, chclose, files)
-	// rtmp := "rtmp://bsslive.com:1935/stream/test"
-	rtmp := "test.flv"
+	rtmp := "rtmp://bsslive.com:1935/stream/test"
+	// rtmp := "test.flv"
 	writer, _ := CreateWriter(ch, chclose, rtmp)
 	// write
 	log.Println("INFO: Writer Prepare")

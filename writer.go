@@ -78,8 +78,8 @@ func (wr *Writer) RegisterVideoStream() {
 		wr.OutputVideoCodecContext.SetFlag(gmf.CODEC_FLAG_GLOBAL_HEADER)
 	}
 	//
-	wr.OutputVideoStream.SetTimeBase(gmf.AVR{Num: 1, Den: 25})
-	wr.OutputVideoStream.SetRFrameRate(gmf.AVR{Num: 25, Den: 1})
+	wr.OutputVideoStream.SetTimeBase(gmf.AVR{Num: 1, Den: 1000})
+	wr.OutputVideoStream.SetRFrameRate(gmf.AVR{Num: 1000, Den: 1})
 	// prepare from input stream
 	if err := wr.OutputVideoCodecContext.Open(nil); err != nil {
 		log.Fatal("ERROR: Cannot open OutputVideoCodecContext")
@@ -135,9 +135,6 @@ func (wr *Writer) StartLoop() {
 		if err != nil {
 			log.Fatal("ERROR: cannot get output stream by index")
 		}
-		for _, _f := range f.Frames {
-			fmt.Printf("Frame pts: %v\n", _f.PktPts())
-		}
 		packets, err = stream.CodecCtx().Encode(f.Frames, f.Flush)
 		if err != nil {
 			log.Fatalf("ERROR: on getting packets from frames; error: %v", err.Error())
@@ -146,10 +143,10 @@ func (wr *Writer) StartLoop() {
 			startTime = time.Now().UnixNano()
 		}
 		for _, op := range packets {
-			fmt.Printf("Packet pts: %v\n", op.Pts())
 			gmf.RescaleTs(op, *f.TimeBase, stream.TimeBase())
 			op.SetStreamIndex(f.StreamIndex)
 			//
+			pts := op.Pts()
 			err = wr.OutputContex.WritePacket(op)
 			if err != nil {
 				log.Fatalf("ERROR: on writing packet to output; %v", err.Error())
@@ -157,9 +154,9 @@ func (wr *Writer) StartLoop() {
 			//
 			if f.StreamIndex == 0 {
 				diff := (time.Now().UnixNano() - startTime) / 1000000
-				sleep_time := op.Pts() - diff
+				sleep_time := pts - diff
 				log.Printf("Sleep: %v; St: %v; Pts: %v; TimeBase: %v; stream.TimeBase: %v ; Is video: %v\n",
-					sleep_time, startTime, op.Pts(), *f.TimeBase, stream.TimeBase(), stream.IsVideo())
+					sleep_time, startTime, pts, *f.TimeBase, stream.TimeBase(), stream.IsVideo())
 				time.Sleep(time.Millisecond * time.Duration(sleep_time))
 			}
 			op.Free()

@@ -65,9 +65,6 @@ func (v *VFile) LogStreams() {
 				srcStream.CodecCtx().Codec().Name(), srcStream.CodecCtx().Profile(), srcStream.CodecCtx().Codec().Id(),
 				srcStream.TimeBase())
 		} else if srcStream.IsAudio() {
-			log.Println("SOSOOOOOO")
-			// log.Printf("%v; %v; %v; %v;", srcStream.CodecCtx().SampleFmt(), gmf.AV_SAMPLE_FMT_FLTP)
-			log.Println(")))))))))")
 			log.Printf(
 				"Stream #%v; AUDIO; Codec: %v, Codec profile: %v, Codec id: %v, Timebase: %+v, sample fmt: %v, sample rate: %v\n",
 				srcStream.Index(),
