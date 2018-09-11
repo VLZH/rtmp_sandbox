@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 )
 
 // CreateWriter is
-func CreateWriter(ch chan *gmf.Packet, chclose chan bool, dst string) (Writer, error) {
+func CreateWriter(ch chan *SFrame, chclose chan bool, dst string) (Writer, error) {
 	return Writer{
 		Ch:          ch,
 		Destination: dst,
@@ -17,10 +18,19 @@ func CreateWriter(ch chan *gmf.Packet, chclose chan bool, dst string) (Writer, e
 
 // Writer is struct of writer to a muxer
 type Writer struct {
-	Ch          chan *gmf.Packet
+	Ch          chan *SFrame
+	ChS         chan *gmf.Stream
 	Destination string
 	//
 	OutputContex *gmf.FmtCtx
+	//
+	OutputVideoCodecContext *gmf.CodecCtx
+	OutputVideoCodec        *gmf.Codec
+	OutputVideoStream       *gmf.Stream
+	//
+	OutputAudioCodecContext *gmf.CodecCtx
+	OutputAudioCodec        *gmf.Codec
+	OutputAudioStream       *gmf.Stream
 }
 
 // Prepare is
@@ -28,56 +38,131 @@ func (wr *Writer) Prepare() {
 	var err error
 	wr.OutputContex, err = gmf.NewOutputCtxWithFormatName(wr.Destination, "flv")
 	if err != nil {
-		log.Println("ERROR: on createing output context", err.Error())
+		log.Fatal("ERROR: on createing output context", err.Error())
 	}
-	// video
-	vc, err := gmf.FindEncoder(gmf.AV_CODEC_ID_H264)
-	if err != nil {
-		log.Println("ERROR: on finding video encoder in writer", err.Error())
+	if wr.OutputContex.IsGlobalHeader() {
+		wr.OutputContex.SetFlag(gmf.CODEC_FLAG_GLOBAL_HEADER)
 	}
-	log.Printf("INFO: Output video codec: %v, id: %v, full: %v \n", vc.Name(), vc.Id(), vc.LongName())
-	vcc := gmf.NewCodecCtx(vc).
-		SetHeight(320).
-		SetWidth(620).
-		SetProfile(gmf.FF_PROFILE_H264_BASELINE).
-		SetPixFmt(gmf.AV_PIX_FMT_RGB32)
-	sv, _ := wr.OutputContex.AddStreamWithCodeCtx(vcc)
-	// audio
-	ac, err := gmf.FindDecoder("aac")
-	if err != nil {
-		log.Println("ERROR: on finding audio encoder in writer", err.Error())
-	}
-	log.Printf("INFO: Output audio codec: %v, id: %v, full: %v \n", ac.Name(), ac.Id(), ac.LongName())
-	acc := gmf.NewCodecCtx(ac).SetSampleFmt(int32(8)).SetSampleRate(44100)
-	sa, _ := wr.OutputContex.AddStreamWithCodeCtx(acc)
-	log.Printf("INFO: Output video stream index: %v, audio stream index: %v, streams count: %v \n", sv.Index(), sa.Index(), wr.OutputContex.StreamsCnt())
+	wr.RegisterStreams()
 	wr.writeHeader()
+}
+
+// RegisterStreams is
+func (wr *Writer) RegisterStreams() {
+	wr.RegisterVideoStream()
+	wr.RegisterAudioStream()
+}
+
+// RegisterVideoStream is
+func (wr *Writer) RegisterVideoStream() {
+	var err error
+	// codec
+	wr.OutputVideoCodec, err = gmf.FindEncoder("libx264")
+	if err != nil {
+		log.Fatal("ERROR: cannot get video encoder")
+	}
+	// stream
+	wr.OutputVideoStream = wr.OutputContex.NewStream(wr.OutputVideoCodec)
+	// codec context
+	wr.OutputVideoCodecContext = gmf.NewCodecCtx(wr.OutputVideoCodec).
+		SetHeight(320).
+		SetWidth(640).
+		SetProfile(gmf.FF_PROFILE_H264_BASELINE).
+		SetPixFmt(gmf.AV_PIX_FMT_YUV420P).
+		SetTimeBase(gmf.AVR{Num: 1, Den: 25})
+	defer gmf.Release(wr.OutputVideoStream)
+	if wr.OutputVideoCodec.IsExperimental() {
+		wr.OutputVideoCodecContext.SetStrictCompliance(gmf.FF_COMPLIANCE_EXPERIMENTAL)
+	}
+	if wr.OutputContex.IsGlobalHeader() {
+		wr.OutputVideoCodecContext.SetFlag(gmf.CODEC_FLAG_GLOBAL_HEADER)
+	}
+	//
+	wr.OutputVideoStream.SetTimeBase(gmf.AVR{Num: 1, Den: 25})
+	wr.OutputVideoStream.SetRFrameRate(gmf.AVR{Num: 25, Den: 1})
+	// prepare from input stream
+	if err := wr.OutputVideoCodecContext.Open(nil); err != nil {
+		log.Fatal("ERROR: Cannot open OutputVideoCodecContext")
+	}
+	fmt.Printf("wr.OutputVideoStream time base: %v, Index: %v\n", wr.OutputVideoStream.TimeBase(), wr.OutputVideoStream.Index())
+	wr.OutputVideoStream.SetCodecCtx(wr.OutputVideoCodecContext)
+}
+
+// RegisterAudioStream is
+func (wr *Writer) RegisterAudioStream() {
+	var err error
+	// codec
+	wr.OutputAudioCodec, err = gmf.FindEncoder("aac")
+	if err != nil {
+		log.Fatal("ERROR: cannot get audio encoder")
+	}
+	// stream
+	wr.OutputAudioStream = wr.OutputContex.NewStream(wr.OutputAudioCodec)
+	// codec context
+	wr.OutputAudioCodecContext = gmf.NewCodecCtx(wr.OutputAudioCodec)
+	defer gmf.Release(wr.OutputAudioCodecContext)
+	//
+	if wr.OutputAudioCodec.IsExperimental() {
+		wr.OutputAudioCodecContext.SetStrictCompliance(gmf.FF_COMPLIANCE_EXPERIMENTAL)
+	}
+	if wr.OutputContex.IsGlobalHeader() {
+		wr.OutputAudioCodecContext.SetFlag(gmf.CODEC_FLAG_GLOBAL_HEADER)
+	}
+	//
+	wr.OutputAudioCodecContext.
+		SetTimeBase(gmf.AVR{Num: 1, Den: 44100}).
+		SetSampleRate(44100).
+		SetChannels(2).
+		SetSampleFmt(gmf.AV_SAMPLE_FMT_FLTP)
+		// SetChannelLayout(255)
+	//
+	if err := wr.OutputAudioCodecContext.Open(nil); err != nil {
+		log.Fatal("ERROR: Cannot open OutputAudioCodecContext")
+	}
+	fmt.Printf("wr.OutputAudioStream time base: %v; Index: %v\n", wr.OutputAudioStream.TimeBase(), wr.OutputAudioStream.Index())
+	wr.OutputAudioStream.SetCodecCtx(wr.OutputAudioCodecContext)
 }
 
 // StartLoop is function for starting listen chan of packets and write they to muxer
 func (wr *Writer) StartLoop() {
-	var err error
-	var prevPacketTime int64
-	var currentPacketTime int64
+	var (
+		packets   []*gmf.Packet
+		startTime int64
+	)
 	for {
-		pkt := <-wr.Ch
-		if pkt != nil {
-			err = wr.OutputContex.WritePacketNoBuffer(pkt)
-			gmf.Release(pkt)
+		f := <-wr.Ch
+		stream, err := wr.OutputContex.GetStream(f.StreamIndex)
+		if err != nil {
+			log.Fatal("ERROR: cannot get output stream by index")
+		}
+		for _, _f := range f.Frames {
+			fmt.Printf("Frame pts: %v\n", _f.PktPts())
+		}
+		packets, err = stream.CodecCtx().Encode(f.Frames, f.Flush)
+		if err != nil {
+			log.Fatalf("ERROR: on getting packets from frames; error: %v", err.Error())
+		}
+		if startTime == 0 {
+			startTime = time.Now().UnixNano()
+		}
+		for _, op := range packets {
+			fmt.Printf("Packet pts: %v\n", op.Pts())
+			gmf.RescaleTs(op, *f.TimeBase, stream.TimeBase())
+			op.SetStreamIndex(f.StreamIndex)
+			//
+			err = wr.OutputContex.WritePacket(op)
 			if err != nil {
-				log.Println("ERROR: on writing packet to output context", err.Error())
+				log.Fatalf("ERROR: on writing packet to output; %v", err.Error())
 			}
-			currentPacketTime = time.Now().UnixNano()
-			if prevPacketTime != 0 {
-				log.Printf(
-					"Time since previous packet: %v\n",
-					sred((currentPacketTime-prevPacketTime)/1000000),
-				)
+			//
+			if f.StreamIndex == 0 {
+				diff := (time.Now().UnixNano() - startTime) / 1000000
+				sleep_time := op.Pts() - diff
+				log.Printf("Sleep: %v; St: %v; Pts: %v; TimeBase: %v; stream.TimeBase: %v ; Is video: %v\n",
+					sleep_time, startTime, op.Pts(), *f.TimeBase, stream.TimeBase(), stream.IsVideo())
+				time.Sleep(time.Millisecond * time.Duration(sleep_time))
 			}
-			prevPacketTime = currentPacketTime
-		} else {
-			// wr.writeTrailer()
-			// wr.free()
+			op.Free()
 		}
 	}
 }

@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/3d0c/gmf"
   packages = ["."]
-  revision = "c87ea97893a8577c492af7e9fd50afb19ea20988"
+  revision = "19465bff3eb5e829baec4d0dfffc69b4d2030cc1"
 
 [[projects]]
   name = "github.com/fatih/color"
@@ -29,7 +29,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "fa5fdf94c78965f1aa8423f0cc50b8b8d728b05a"
+  revision = "8cf3aee429924738c56c34bb819c4ea8273fc434"
 
 [solve-meta]
   analyzer-name = "dep"

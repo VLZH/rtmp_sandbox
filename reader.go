@@ -3,13 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
-
-	"github.com/3d0c/gmf"
 )
 
 // CreateReader return new Reader with chanel
-func CreateReader(ch chan *gmf.Packet, chclose chan bool, files []*VFile) (Reader, chan bool) {
+func CreateReader(ch chan *SFrame, chclose chan bool, files []*VFile) (Reader, chan bool) {
 	r := Reader{
 		Ch:      ch,
 		CloseCh: chclose,
@@ -20,40 +17,43 @@ func CreateReader(ch chan *gmf.Packet, chclose chan bool, files []*VFile) (Reade
 
 // Reader is
 type Reader struct {
-	Ch      chan *gmf.Packet
+	Ch      chan *SFrame
 	CloseCh chan bool
 	Files   []*VFile
 	Idx     int
 }
 
+type FilePts map[int]int64
+
 // StartLoop is
 func (r *Reader) StartLoop() {
 	var cFile *VFile
-	startTime := time.Now().UnixNano()
-	prevFilePts := int64(0)
-	prevPacketPts := int64(0)
-	timeDiff := int64(0)
+	prevFilePts := make(FilePts)
+	prevPacketPts := make(FilePts)
 	for {
 		cFile = r.GetNextFile()
 		log.Printf("INFO: File: %v \n", cFile.Path)
 		cFile.Prepare()
+		cFile.LogStreams()
 		for {
-			pkt, packet_type := cFile.ReadPacket()
-			if pkt == nil {
-				prevFilePts = prevPacketPts + prevFilePts
+			cf := cFile.ReadFrames()
+			if cf == nil {
+				// end of file
+				prevFilePts[0] = prevPacketPts[0]
+				prevFilePts[1] = prevPacketPts[1]
 				break
 			}
-			// upgrade pts
-			pkt.SetPts(pkt.Pts() + prevFilePts)
-			pkt.SetDts(pkt.Dts() + prevFilePts)
-			prevPacketPts = pkt.Pts()
-			// sleep
-			if packet_type == IS_VIDEO {
-				timeDiff = (time.Now().UnixNano() - startTime) / int64(1000000)
-				// fmt.Println("Sleep: ", prevPacketPts-timeDiff, " Millisecond", timeDiff)
-				time.Sleep(time.Millisecond * time.Duration(prevPacketPts-timeDiff))
+			// change pts
+			for _, frame := range cf.Frames {
+				pts := frame.Pts() + prevFilePts[cf.StreamIndex]
+				prevPacketPts[cf.StreamIndex] = pts
+				frame.SetPts(pts)
+				frame.SetPktPts(pts)
+				frame.SetPktDts(int(pts))
+				log.Printf("Pts: %v; SetPktPts: %v; SetPktDts: %v; Time Base: %+v", frame.Pts(), frame.PktPts(), frame.PktDts(), cf.TimeBase)
+
 			}
-			r.Ch <- pkt
+			r.Ch <- cf
 		}
 		cFile.free()
 		fmt.Println("End of file", cFile)

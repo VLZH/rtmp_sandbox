@@ -16,23 +16,29 @@ var sgreen = color.New(color.FgGreen).SprintFunc()
 var sblue = color.New(color.FgBlue).SprintFunc()
 var sred = color.New(color.FgRed).SprintFunc()
 
+type SFrame struct {
+	Frames      []*gmf.Frame
+	StreamIndex int
+	TimeBase    *gmf.AVRational
+	Flush       int
+}
+
 func asyncCopyPackets() {
-	ch := make(chan *gmf.Packet)
+	ch := make(chan *SFrame, 100)
 	chclose := make(chan bool)
 	files := []*VFile{
 		&VFile{Path: "./1.mp4", DestHeight: 320, DestWidth: 640},
 		&VFile{Path: "./2.mp4", DestHeight: 320, DestWidth: 640},
 	}
 	reader, _ := CreateReader(ch, chclose, files)
-	rtmp := "rtmp://95.213.204.75:1935/stream/test"
+	// rtmp := "rtmp://bsslive.com:1935/stream/test"
+	rtmp := "test.flv"
 	writer, _ := CreateWriter(ch, chclose, rtmp)
 	// write
 	log.Println("INFO: Writer Prepare")
 	writer.Prepare()
 	log.Println("INFO: Writer Start Loop")
 	go writer.StartLoop()
-	// TEST!
-	time.Sleep(time.Second * 3)
 	// read
 	log.Println("INFO: Reader Start Loop")
 	go reader.StartLoop()
