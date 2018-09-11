@@ -155,8 +155,8 @@ func (wr *Writer) StartLoop() {
 			if f.StreamIndex == 0 {
 				diff := (time.Now().UnixNano() - startTime) / 1000000
 				sleep_time := pts - diff
-				log.Printf("Sleep: %v; St: %v; Pts: %v; TimeBase: %v; stream.TimeBase: %v ; Is video: %v\n",
-					sleep_time, startTime, pts, *f.TimeBase, stream.TimeBase(), stream.IsVideo())
+				log.Printf("Sleep: %v; Pts: %v; Input TimeBase: %v; Output TimeBase: %v\n",
+					sred(sleep_time), sred(pts), sred(*f.TimeBase), sred(stream.TimeBase()))
 				time.Sleep(time.Millisecond * time.Duration(sleep_time))
 			}
 			op.Free()
