@@ -163,5 +163,5 @@ func (v *VFile) ReadFrames() *SFrame {
 		outputStreamIndex = 1
 	}
 	tb := v.CurrentPacketStream.TimeBase()
-	return &SFrame{Frames: frames, StreamIndex: outputStreamIndex, TimeBase: &tb, Flush: v.Flush}
+	return &SFrame{Frames: frames, StreamIndex: outputStreamIndex, TimeBase: &tb, Flush: v.Flush, OriginalPts: v.CurrentPacket.Pts()}
 }
